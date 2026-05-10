@@ -1,0 +1,261 @@
+package com.example.boardexamreviewer.ui.pomodoro;
+
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.content.SharedPreferences;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import com.example.boardexamreviewer.data.AppDatabase;
+import com.example.boardexamreviewer.data.StudySessionEntity;
+import com.example.boardexamreviewer.databinding.FragmentPomodoroBinding;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * [SUB-MODULE: POMODORO CLOCK]
+ * This fragment manages the study timer, white noise, and session tracking.
+ */
+public class PomodoroFragment extends Fragment {
+
+    private FragmentPomodoroBinding binding;
+    private TimerService timerService;
+    private boolean isBound = false;
+    private boolean isWorking = true;
+    private boolean extensionUsed = false;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    private final ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            TimerService.TimerBinder binder = (TimerService.TimerBinder) service;
+            timerService = binder.getService();
+            
+            SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+            int currentUserId = prefs.getInt("current_user_id", -1);
+            timerService.prepareForUser(currentUserId);
+            
+            isBound = true;
+            setupServiceListeners();
+            updateUIFromService();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            isBound = false;
+        }
+    };
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        binding = FragmentPomodoroBinding.inflate(inflater, container, false);
+        return binding.getRoot();
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        Intent serviceIntent = new Intent(requireContext(), TimerService.class);
+        requireContext().startService(serviceIntent);
+        requireContext().bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE);
+
+        setupSpinners();
+
+        binding.etWorkTime.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (timerService == null || !timerService.isTimerRunning) {
+                    try {
+                        long mins = Long.parseLong(s.toString());
+                        updateCountDownText(mins * 60 * 1000);
+                    } catch (NumberFormatException e) {
+                        updateCountDownText(25 * 60 * 1000);
+                    }
+                }
+            }
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        });
+
+        binding.btnStartPause.setOnClickListener(v -> {
+            if (timerService != null && timerService.isTimerRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        });
+
+        binding.btnReset.setOnClickListener(v -> resetTimer());
+
+        binding.btnExtend.setOnClickListener(v -> {
+            if (!extensionUsed && timerService != null && timerService.isTimerRunning) {
+                extendTimer();
+            }
+        });
+    }
+
+    private void setupServiceListeners() {
+        timerService.onTickListener = this::updateCountDownText;
+        timerService.onFinishListener = () -> {
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    playAlarm();
+                    saveSession();
+                    isWorking = !isWorking;
+                    resetTimer();
+                });
+            }
+        };
+    }
+
+    private void updateUIFromService() {
+        if (timerService != null) {
+            if (timerService.isTimerRunning || timerService.timeLeftInMillis > 0) {
+                updateCountDownText(timerService.timeLeftInMillis);
+            } else {
+                long workMins;
+                try {
+                    workMins = Long.parseLong(binding.etWorkTime.getText().toString());
+                } catch (NumberFormatException e) {
+                    workMins = 25;
+                }
+                updateCountDownText(workMins * 60 * 1000);
+            }
+            binding.btnStartPause.setText(timerService.isTimerRunning ? "PAUSE" : (timerService.timeLeftInMillis > 0 ? "RESUME" : "START FOCUS SESSION"));
+        }
+    }
+
+    private void setupSpinners() {
+        String[] noises = {"None", "Rain", "Waves", "Forest"};
+        binding.spinnerWhiteNoise.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, noises));
+
+        String[] alarms = {"Default Bell", "Digital", "Zen", "None"};
+        binding.spinnerAlarm.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, alarms));
+    }
+
+    private void startTimer() {
+        if (timerService == null) return;
+        
+        SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        int currentUserId = prefs.getInt("current_user_id", -1);
+        long duration;
+        if (timerService.timeLeftInMillis > 0) {
+            duration = timerService.timeLeftInMillis;
+        } else {
+            long mins;
+            try {
+                mins = Long.parseLong(isWorking ? binding.etWorkTime.getText().toString() : binding.etBreakTime.getText().toString());
+            } catch (NumberFormatException e) {
+                mins = isWorking ? 25 : 5;
+            }
+            duration = mins * 60 * 1000;
+        }
+        timerService.startTimer(duration, currentUserId);
+        
+        String selectedAmbient = binding.spinnerWhiteNoise.getText().toString();
+        timerService.playAmbient(selectedAmbient);
+        
+        binding.btnStartPause.setText("Pause");
+    }
+
+    private void pauseTimer() {
+        if (timerService != null) {
+            timerService.pauseTimer();
+            binding.btnStartPause.setText("Resume");
+        }
+    }
+
+    private void resetTimer() {
+        if (timerService != null) {
+            timerService.resetTimer();
+        }
+        isWorking = true;
+        extensionUsed = false;
+        long workMins;
+        try {
+            workMins = Long.parseLong(binding.etWorkTime.getText().toString());
+        } catch (NumberFormatException e) {
+            workMins = 25;
+        }
+        updateCountDownText(workMins * 60 * 1000);
+        binding.btnStartPause.setText("Start Focus Session");
+    }
+
+    private void extendTimer() {
+        if (timerService == null) return;
+        
+        SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        int currentUserId = prefs.getInt("current_user_id", -1);
+        long newTime = timerService.timeLeftInMillis + 5 * 60 * 1000;
+        timerService.startTimer(newTime, currentUserId);
+        extensionUsed = true;
+        binding.btnExtend.setEnabled(false);
+        Toast.makeText(getContext(), "Extended by 5 minutes", Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateCountDownText(long millis) {
+        if (binding == null) return;
+        long minutes = (millis / 1000) / 60;
+        long seconds = (millis / 1000) % 60;
+        binding.tvTimerDisplay.setText(String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds));
+    }
+
+    private void playAlarm() {
+        try {
+            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            RingtoneManager.getRingtone(requireContext(), notification).play();
+        } catch (Exception e) {}
+    }
+
+    private void saveSession() {
+        if (!isWorking) return;
+        int tempDuration;
+        try {
+            tempDuration = Integer.parseInt(binding.etWorkTime.getText().toString());
+        } catch (NumberFormatException e) {
+            tempDuration = 25;
+        }
+        final int duration = tempDuration;
+        Context appContext = requireContext().getApplicationContext();
+        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        final int userId = prefs.getInt("current_user_id", -1);
+
+        executorService.execute(() -> {
+            AppDatabase db = AppDatabase.getDatabase(appContext);
+            db.appDao().insertStudySession(new StudySessionEntity(userId, duration, "Work"));
+        });
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (isBound) {
+            requireContext().unbindService(connection);
+            isBound = false;
+        }
+        binding = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        executorService.shutdown();
+    }
+}

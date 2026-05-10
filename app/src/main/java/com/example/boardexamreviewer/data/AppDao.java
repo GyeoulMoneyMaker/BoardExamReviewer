@@ -1,60 +1,61 @@
-package com.example.boardexamreviewer.data
+package com.example.boardexamreviewer.data;
 
-import androidx.room.*
+import androidx.room.*;
+import java.util.List;
 
 @Dao
-interface AppDao {
+public interface AppDao {
     // --- Documents ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertDocument(document: DocumentEntity): Long
+    long insertDocument(DocumentEntity document);
 
     @Query("SELECT * FROM documents WHERE userId = :userId ORDER BY timestamp DESC")
-    suspend fun getAllDocumentsByUser(userId: Int): List<DocumentEntity>
+    List<DocumentEntity> getAllDocumentsByUser(int userId);
 
     @Query("SELECT * FROM documents WHERE userId = :userId ORDER BY timestamp DESC LIMIT 1")
-    suspend fun getLastDocumentByUser(userId: Int): DocumentEntity?
+    DocumentEntity getLastDocumentByUser(int userId);
 
     @Delete
-    suspend fun deleteDocument(document: DocumentEntity)
+    void deleteDocument(DocumentEntity document);
 
     // --- Reviewers ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertReviewer(reviewer: ReviewerEntity)
+    void insertReviewer(ReviewerEntity reviewer);
 
     @Query("SELECT * FROM reviewers WHERE userId = :userId ORDER BY timestamp DESC")
-    suspend fun getAllReviewersByUser(userId: Int): List<ReviewerEntity>
+    List<ReviewerEntity> getAllReviewersByUser(int userId);
 
     // --- Quizzes ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertQuiz(quiz: QuizEntity)
+    void insertQuiz(QuizEntity quiz);
 
     @Query("SELECT * FROM quizzes WHERE userId = :userId ORDER BY timestamp DESC")
-    suspend fun getAllQuizzesByUser(userId: Int): List<QuizEntity>
+    List<QuizEntity> getAllQuizzesByUser(int userId);
 
     // --- Users (Profile Module) ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertUser(user: UserEntity): Long
+    long insertUser(UserEntity user);
 
     @Query("SELECT * FROM users ORDER BY name ASC")
-    suspend fun getAllUsers(): List<UserEntity>
+    List<UserEntity> getAllUsers();
 
     @Query("SELECT * FROM users WHERE id = :userId")
-    suspend fun getUserById(userId: Int): UserEntity?
+    UserEntity getUserById(int userId);
 
     // --- Categories ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCategory(category: CategoryEntity): Long
+    long insertCategory(CategoryEntity category);
 
     @Query("SELECT * FROM categories ORDER BY name ASC")
-    suspend fun getAllCategories(): List<CategoryEntity>
+    List<CategoryEntity> getAllCategories();
 
     // --- Progress Tracking ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertStudySession(session: StudySessionEntity)
+    void insertStudySession(StudySessionEntity session);
 
     @Query("SELECT * FROM study_sessions WHERE userId = :userId ORDER BY timestamp DESC")
-    suspend fun getStudySessionsByUser(userId: Int): List<StudySessionEntity>
+    List<StudySessionEntity> getStudySessionsByUser(int userId);
 
     @Query("SELECT SUM(durationMinutes) FROM study_sessions WHERE userId = :userId AND sessionType = 'Work'")
-    suspend fun getTotalStudyTime(userId: Int): Int?
+    Integer getTotalStudyTime(int userId);
 }

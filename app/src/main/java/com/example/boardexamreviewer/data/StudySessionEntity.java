@@ -1,0 +1,25 @@
+package com.example.boardexamreviewer.data;
+
+import androidx.room.Entity;
+import androidx.room.Ignore;
+import androidx.room.PrimaryKey;
+
+@Entity(tableName = "study_sessions")
+public class StudySessionEntity {
+    @PrimaryKey(autoGenerate = true)
+    public int id = 0;
+    public int userId;
+    public int durationMinutes;
+    public String sessionType;
+    public long timestamp = System.currentTimeMillis();
+
+    @Ignore
+    public StudySessionEntity() {}
+
+    public StudySessionEntity(int userId, int durationMinutes, String sessionType) {
+        this.userId = userId;
+        this.durationMinutes = durationMinutes;
+        this.sessionType = sessionType;
+        this.timestamp = System.currentTimeMillis();
+    }
+}
