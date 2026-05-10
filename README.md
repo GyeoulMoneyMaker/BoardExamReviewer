@@ -57,11 +57,6 @@
 
 ---
 
-## 📸 Screenshots
-*(Add your screenshots here to show off the UI!)*
-
----
-
 ## 🤝 Contributing
 Contributions are welcome! If you have ideas for new focus sounds or AI features, feel free to open a Pull Request.
 
