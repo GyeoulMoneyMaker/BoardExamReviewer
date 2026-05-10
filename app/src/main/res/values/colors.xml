@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- [PREMIUM BLUE & WHITE SCHEME] -->
+    <color name="primary_blue">#1976D2</color>
+    <color name="primary_light_blue">#BBDEFB</color>
+    <color name="primary_dark_blue">#0D47A1</color>
+    <color name="white">#FFFFFF</color>
+    <color name="background_white">#F5F7FA</color>
+    <color name="text_deep_blue">#1A237E</color>
+    <color name="text_gray">#757575</color>
+    <color name="accent_gold">#FFD600</color>
+    
+    <!-- Standard Colors -->
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+</resources>
