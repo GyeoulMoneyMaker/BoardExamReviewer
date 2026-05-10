@@ -28,11 +28,12 @@
 ---
 
 ## 🛠️ Tech Stack
-*   **Language**: Kotlin
+*   **Language**: Java (Migrated from Kotlin)
+*   **Concurrency**: Java ExecutorService & Foreground Services
 *   **Database**: Room Persistence (SQLite) for offline data.
 *   **Networking**: Retrofit & OKHttp for secure AI communication.
 *   **AI Engine**: Google Gemini 1.5/2.5 Flash.
-*   **UI Architecture**: MVVM with ViewBinding and Fragment Navigation.
+*   **UI Architecture**: Fragment Navigation with ViewBinding.
 
 ---
 
