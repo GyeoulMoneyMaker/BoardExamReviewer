@@ -28,7 +28,7 @@
 ---
 
 ## 🛠️ Tech Stack
-*   **Language**: Java (Migrated from Kotlin)
+*   **Language**: Java
 *   **Concurrency**: Java ExecutorService & Foreground Services
 *   **Database**: Room Persistence (SQLite) for offline data.
 *   **Networking**: Retrofit & OKHttp for secure AI communication.
