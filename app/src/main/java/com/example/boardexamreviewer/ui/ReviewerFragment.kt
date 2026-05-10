@@ -122,7 +122,7 @@ class ReviewerFragment : Fragment() {
 
     /**
      * [STEP: AI GENERATION]
-     * Talks to DeepSeek AI to summarize your document.
+     * Talks to Gemini AI to summarize your document.
      */
     private fun generateReviewer() {
         val appContext = context?.applicationContext ?: return

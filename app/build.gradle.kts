@@ -25,9 +25,7 @@ android {
         if (localPropertiesFile.exists()) {
             properties.load(localPropertiesFile.inputStream())
         }
-        val apiKey = properties.getProperty("DEEPSEEK_API_KEY") ?: ""
         val geminiKey = properties.getProperty("GEMINI_API_KEY") ?: ""
-        buildConfigField("String", "DEEPSEEK_API_KEY", "\"$apiKey\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
     }
 

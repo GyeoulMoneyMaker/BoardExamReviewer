@@ -147,7 +147,7 @@ class QuizFragment : Fragment() {
 
     /**
      * [STEP: AI GENERATION]
-     * This talks to the DeepSeek AI to create a new quiz.
+     * This talks to the Gemini AI to create a new quiz.
      */
     private fun generateQuiz() {
         val appContext = context?.applicationContext ?: return
@@ -344,7 +344,7 @@ class QuizFragment : Fragment() {
     private fun handleAiError(code: Int) {
         val errorMsg = when(code) {
             401 -> "Invalid API Key. Check AppConfig."
-            402 -> "DeepSeek balance exhausted."
+            402 -> "AI balance exhausted."
             else -> "AI Error: $code"
         }
         Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show()
