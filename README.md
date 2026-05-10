@@ -55,13 +55,3 @@
     GEMINI_API_KEY=your_key_here
     ```
 4.  Build and Run!
-
----
-
-## 🤝 Contributing
-Contributions are welcome! If you have ideas for new focus sounds or AI features, feel free to open a Pull Request.
-
----
-
-## 📜 License
-This project is for educational purposes. Built with ❤️ by **Gyeoul**.
