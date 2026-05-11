@@ -51,7 +51,6 @@ public class PomodoroFragment extends Fragment {
             isBound = true;
             
             // Sync initial sound settings
-            SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
             String savedNoise = prefs.getString("selected_ambient", "None");
             String savedAlarm = prefs.getString("selected_alarm", "Wake Up");
             timerService.setSelectedAmbient(savedNoise);
