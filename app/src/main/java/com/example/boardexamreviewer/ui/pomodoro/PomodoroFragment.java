@@ -119,7 +119,17 @@ public class PomodoroFragment extends Fragment {
                     saveSession();
                     isWorking = !isWorking;
                     showAlarmPopup();
-                    resetTimer();
+                    
+                    // Reset UI without stopping the alarm audio
+                    long workMins;
+                    try {
+                        workMins = Long.parseLong(binding.etWorkTime.getText().toString());
+                    } catch (NumberFormatException e) {
+                        workMins = 25;
+                    }
+                    updateCountDownText(workMins * 60 * 1000);
+                    binding.btnStartPause.setText("Start Focus Session");
+                    extensionUsed = false;
                 });
             }
         };
@@ -143,11 +153,71 @@ public class PomodoroFragment extends Fragment {
     }
 
     private void setupSpinners() {
-        String[] noises = {"None", "Rain", "Waves", "Forest"};
-        binding.spinnerWhiteNoise.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, noises));
+        if (getContext() == null) return;
+        SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        
+        // 1. Setup Ambient Sound Dropdown with FILTERING DISABLED
+        String[] noises = {"None", "Rain", "Fireplace", "Forest", "Snow", "Rough Winds"};
+        ArrayAdapter<String> noiseAdapter = new ArrayAdapter<String>(requireContext(), android.R.layout.simple_list_item_1, noises) {
+            @NonNull
+            @Override
+            public android.widget.Filter getFilter() {
+                return new android.widget.Filter() {
+                    @Override
+                    protected FilterResults performFiltering(CharSequence constraint) {
+                        FilterResults results = new FilterResults();
+                        results.values = noises;
+                        results.count = noises.length;
+                        return results;
+                    }
+                    @Override
+                    protected void publishResults(CharSequence constraint, FilterResults results) {
+                        notifyDataSetChanged();
+                    }
+                };
+            }
+        };
+        binding.spinnerWhiteNoise.setAdapter(noiseAdapter);
+        String savedNoise = prefs.getString("selected_ambient", "None");
+        binding.spinnerWhiteNoise.setText(savedNoise, false);
+        
+        binding.spinnerWhiteNoise.setOnItemClickListener((parent, view, position, id) -> {
+            String selected = (String) parent.getItemAtPosition(position);
+            prefs.edit().putString("selected_ambient", selected).apply();
+            if (timerService != null && timerService.isTimerRunning) {
+                timerService.playAmbient(selected);
+            }
+        });
 
-        String[] alarms = {"Default Bell", "Digital", "Zen", "None"};
-        binding.spinnerAlarm.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, alarms));
+        // 2. Setup Alarm Sound Dropdown with FILTERING DISABLED
+        String[] alarms = {"None", "Wake Up", "Christmas", "Danger", "Morning Flower", "Nuclear", "Rock"};
+        ArrayAdapter<String> alarmAdapter = new ArrayAdapter<String>(requireContext(), android.R.layout.simple_list_item_1, alarms) {
+            @NonNull
+            @Override
+            public android.widget.Filter getFilter() {
+                return new android.widget.Filter() {
+                    @Override
+                    protected FilterResults performFiltering(CharSequence constraint) {
+                        FilterResults results = new FilterResults();
+                        results.values = alarms;
+                        results.count = alarms.length;
+                        return results;
+                    }
+                    @Override
+                    protected void publishResults(CharSequence constraint, FilterResults results) {
+                        notifyDataSetChanged();
+                    }
+                };
+            }
+        };
+        binding.spinnerAlarm.setAdapter(alarmAdapter);
+        String savedAlarm = prefs.getString("selected_alarm", "Wake Up");
+        binding.spinnerAlarm.setText(savedAlarm, false);
+        
+        binding.spinnerAlarm.setOnItemClickListener((parent, view, position, id) -> {
+            String selected = (String) parent.getItemAtPosition(position);
+            prefs.edit().putString("selected_alarm", selected).apply();
+        });
     }
 
     private void startTimer() {

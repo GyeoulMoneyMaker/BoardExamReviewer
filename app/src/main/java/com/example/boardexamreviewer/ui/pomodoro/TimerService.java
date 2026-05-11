@@ -186,66 +186,60 @@ public class TimerService extends Service {
             ambientPlayer = null;
         }
 
-        if ("None".equals(type)) return;
+        if (type == null || "None".equals(type)) return;
 
-        try {
-            Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-            ambientPlayer = MediaPlayer.create(this, soundUri);
-            if (ambientPlayer != null) {
-                ambientPlayer.setLooping(true);
-                ambientPlayer.start();
+        int resId = 0;
+        switch (type) {
+            case "Rain": resId = R.raw.rain_ambience; break;
+            case "Fireplace": resId = R.raw.fireplace_ambience; break;
+            case "Forest": resId = R.raw.forest_ambience; break;
+            case "Snow": resId = R.raw.snow_ambience; break;
+            case "Rough Winds": resId = R.raw.rough_winds_ambience; break;
+        }
+
+        if (resId != 0) {
+            try {
+                ambientPlayer = MediaPlayer.create(this, resId);
+                if (ambientPlayer != null) {
+                    ambientPlayer.setLooping(true);
+                    ambientPlayer.start();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 
     public void playAlarm(String type) {
-        if ("None".equals(type)) return;
+        if (type == null || "None".equals(type)) return;
         
         try {
             if (alarmPlayer != null) {
                 alarmPlayer.stop();
                 alarmPlayer.release();
+                alarmPlayer = null;
             }
 
-            // [PRIORITY] Try the custom sound 'fah' first
-            try {
-                alarmPlayer = MediaPlayer.create(this, R.raw.fah);
-                if (alarmPlayer != null) {
-                    alarmPlayer.setLooping(true);
-                    alarmPlayer.start();
-                    return;
-                }
-            } catch (Exception e) {
-                // If fah fails, fall back to system sounds
+            int resId = 0;
+            switch (type) {
+                case "Wake Up": resId = R.raw.wake_up_alarm; break;
+                case "Christmas": resId = R.raw.christmas_alarm; break;
+                case "Danger": resId = R.raw.danger_alarm; break;
+                case "Morning Flower": resId = R.raw.morning_flower_alarm; break;
+                case "Nuclear": resId = R.raw.nuclear_alarm; break;
+                case "Rock": resId = R.raw.rock_alarm; break;
+                default: resId = R.raw.fah; break; // Default fallback to 'fah'
             }
 
-            // Fallback system sounds
-            Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            if (alarmUri == null) {
-                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            alarmPlayer = MediaPlayer.create(this, resId);
+            if (alarmPlayer != null) {
+                alarmPlayer.setLooping(true);
+                alarmPlayer.start();
             }
-            if (alarmUri == null) {
-                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-            }
-
-            alarmPlayer = new MediaPlayer();
-            alarmPlayer.setDataSource(this, alarmUri);
-            
-            AudioAttributes attributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build();
-            alarmPlayer.setAudioAttributes(attributes);
-            
-            alarmPlayer.setLooping(true);
-            alarmPlayer.prepare();
-            alarmPlayer.start();
             
         } catch (Exception e) {
             e.printStackTrace();
-            // Final emergency fallback
+            // Final emergency fallback to notification sound
             try {
                 Uri fallback = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
                 alarmPlayer = MediaPlayer.create(this, fallback);
