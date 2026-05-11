@@ -6,7 +6,6 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 
 /**
- * [SUB-MODULE: NETWORK HELPER]
  * Helper to check if the device has an internet connection.
  */
 public class NetworkHelper {

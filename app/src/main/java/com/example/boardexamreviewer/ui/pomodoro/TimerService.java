@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -16,11 +17,11 @@ import android.os.CountDownTimer;
 import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 import com.example.boardexamreviewer.MainActivity;
+import com.example.boardexamreviewer.R;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * [SUB-MODULE: TIMER ENGINE]
  * This service runs in the background to keep the study timer alive.
  */
 public class TimerService extends Service {
@@ -203,13 +204,64 @@ public class TimerService extends Service {
         if ("None".equals(type)) return;
         
         try {
-            Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            alarmPlayer = MediaPlayer.create(this, alarmUri);
             if (alarmPlayer != null) {
-                alarmPlayer.start();
+                alarmPlayer.stop();
+                alarmPlayer.release();
             }
+
+            // [PRIORITY] Try the custom sound 'fah' first
+            try {
+                alarmPlayer = MediaPlayer.create(this, R.raw.fah);
+                if (alarmPlayer != null) {
+                    alarmPlayer.setLooping(true);
+                    alarmPlayer.start();
+                    return;
+                }
+            } catch (Exception e) {
+                // If fah fails, fall back to system sounds
+            }
+
+            // Fallback system sounds
+            Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (alarmUri == null) {
+                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            }
+            if (alarmUri == null) {
+                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            }
+
+            alarmPlayer = new MediaPlayer();
+            alarmPlayer.setDataSource(this, alarmUri);
+            
+            AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+            alarmPlayer.setAudioAttributes(attributes);
+            
+            alarmPlayer.setLooping(true);
+            alarmPlayer.prepare();
+            alarmPlayer.start();
+            
         } catch (Exception e) {
             e.printStackTrace();
+            // Final emergency fallback
+            try {
+                Uri fallback = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                alarmPlayer = MediaPlayer.create(this, fallback);
+                if (alarmPlayer != null) {
+                    alarmPlayer.setLooping(true);
+                    alarmPlayer.start();
+                }
+            } catch (Exception ex) {}
+        }
+    }
+
+    public void stopAlarm() {
+        if (alarmPlayer != null) {
+            alarmPlayer.stop();
+            alarmPlayer.release();
+            alarmPlayer = null;
         }
     }
 

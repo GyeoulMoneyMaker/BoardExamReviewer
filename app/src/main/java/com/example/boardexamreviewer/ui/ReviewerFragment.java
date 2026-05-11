@@ -25,7 +25,6 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * [SUB-MODULE: AI REVIEWER GENERATOR]
  * This fragment generates a study summary (Reviewer) from your document.
  */
 public class ReviewerFragment extends Fragment {
@@ -193,7 +192,13 @@ public class ReviewerFragment extends Fragment {
                     return;
                 }
 
-                String prompt = "Based on the following text, generate a comprehensive reviewer summary for a board exam:\n\n" + docSource.extractedText;
+                String prompt = "Based on the following text, generate a comprehensive reviewer summary for a board exam.\n\n" +
+                                "Format Requirements:\n" +
+                                "- Use a clean, clear, and concise bulleted format.\n" +
+                                "- Do NOT use markdown headers (no '#' characters).\n" +
+                                "- Focus on key concepts, definitions, and important points.\n" +
+                                "- Make it easy to read and study from.\n\n" +
+                                "Text:\n" + docSource.extractedText;
                 
                 List<GeminiRequest.Part> parts = new ArrayList<>();
                 parts.add(new GeminiRequest.Part(prompt));

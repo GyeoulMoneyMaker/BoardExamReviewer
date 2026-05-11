@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * [SUB-MODULE: PROFILE]
  * This fragment allows users to "log in" by selecting or creating a profile.
  */
 public class ProfileFragment extends Fragment {

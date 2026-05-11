@@ -7,7 +7,7 @@ import retrofit2.http.Path;
 import retrofit2.http.Query;
 
 /**
- * [SUB-MODULE: GEMINI API SERVICE]
+ * Interface for Google Gemini AI API.
  */
 public interface GeminiApiService {
     @POST("v1/models/{model}:generateContent")
