@@ -300,6 +300,7 @@ public class PomodoroFragment extends Fragment {
             .setPositiveButton("Stop Alarm", (dialog, which) -> {
                 if (timerService != null) {
                     timerService.stopAlarm();
+                    timerService.stopAmbient();
                 }
             })
             .show();

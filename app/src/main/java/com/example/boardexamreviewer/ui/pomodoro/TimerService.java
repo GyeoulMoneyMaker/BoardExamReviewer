@@ -118,6 +118,20 @@ public class TimerService extends Service {
             @Override
             public void onFinish() {
                 isTimerRunning = false;
+                
+                // Stop the ambient noise when the session is over
+                if (ambientPlayer != null) {
+                    ambientPlayer.stop();
+                    ambientPlayer.release();
+                    ambientPlayer = null;
+                }
+                
+                // Reset time so the next session starts fresh
+                timeLeftInMillis = 0;
+                if (ownerUserId != -1) {
+                    userTimeMap.remove(ownerUserId);
+                }
+
                 if (onFinishListener != null) {
                     onFinishListener.onFinish();
                 }
@@ -248,6 +262,14 @@ public class TimerService extends Service {
                     alarmPlayer.start();
                 }
             } catch (Exception ex) {}
+        }
+    }
+
+    public void stopAmbient() {
+        if (ambientPlayer != null) {
+            ambientPlayer.stop();
+            ambientPlayer.release();
+            ambientPlayer = null;
         }
     }
 
