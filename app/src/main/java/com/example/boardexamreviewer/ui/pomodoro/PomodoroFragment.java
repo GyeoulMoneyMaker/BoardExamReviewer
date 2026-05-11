@@ -49,6 +49,14 @@ public class PomodoroFragment extends Fragment {
             timerService.prepareForUser(currentUserId);
             
             isBound = true;
+            
+            // Sync initial sound settings
+            SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+            String savedNoise = prefs.getString("selected_ambient", "None");
+            String savedAlarm = prefs.getString("selected_alarm", "Wake Up");
+            timerService.setSelectedAmbient(savedNoise);
+            timerService.setSelectedAlarm(savedAlarm);
+
             setupServiceListeners();
             updateUIFromService();
         }
@@ -184,8 +192,11 @@ public class PomodoroFragment extends Fragment {
         binding.spinnerWhiteNoise.setOnItemClickListener((parent, view, position, id) -> {
             String selected = (String) parent.getItemAtPosition(position);
             prefs.edit().putString("selected_ambient", selected).apply();
-            if (timerService != null && timerService.isTimerRunning) {
-                timerService.playAmbient(selected);
+            if (timerService != null) {
+                timerService.setSelectedAmbient(selected);
+                if (timerService.isTimerRunning) {
+                    timerService.playAmbient(selected);
+                }
             }
         });
 
@@ -217,6 +228,9 @@ public class PomodoroFragment extends Fragment {
         binding.spinnerAlarm.setOnItemClickListener((parent, view, position, id) -> {
             String selected = (String) parent.getItemAtPosition(position);
             prefs.edit().putString("selected_alarm", selected).apply();
+            if (timerService != null) {
+                timerService.setSelectedAlarm(selected);
+            }
         });
     }
 
@@ -290,9 +304,7 @@ public class PomodoroFragment extends Fragment {
     private void showAlarmPopup() {
         if (timerService == null) return;
         
-        String selectedAlarm = binding.spinnerAlarm.getText().toString();
-        timerService.playAlarm(selectedAlarm);
-
+        // The service already started the alarm sound, we just show the UI
         new AlertDialog.Builder(requireContext())
             .setTitle("Time's Up!")
             .setMessage(isWorking ? "Break time is over! Back to work?" : "Focus session finished! Take a break?")

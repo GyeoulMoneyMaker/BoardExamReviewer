@@ -46,6 +46,9 @@ public class TimerService extends Service {
     
     public OnTickListener onTickListener;
     public OnFinishListener onFinishListener;
+    
+    private String selectedAmbient = "None";
+    private String selectedAlarm = "Wake Up";
 
     public class TimerBinder extends Binder {
         public TimerService getService() {
@@ -119,14 +122,13 @@ public class TimerService extends Service {
             public void onFinish() {
                 isTimerRunning = false;
                 
-                // Stop the ambient noise when the session is over
-                if (ambientPlayer != null) {
-                    ambientPlayer.stop();
-                    ambientPlayer.release();
-                    ambientPlayer = null;
-                }
+                // Stop ambient noise
+                stopAmbient();
                 
-                // Reset time so the next session starts fresh
+                // START THE ALARM HERE (Service handles it now)
+                playAlarm(selectedAlarm);
+                
+                // Reset time for next session
                 timeLeftInMillis = 0;
                 if (ownerUserId != -1) {
                     userTimeMap.remove(ownerUserId);
@@ -193,7 +195,16 @@ public class TimerService extends Service {
         }
     }
 
+    public void setSelectedAmbient(String ambient) {
+        this.selectedAmbient = ambient;
+    }
+
+    public void setSelectedAlarm(String alarm) {
+        this.selectedAlarm = alarm;
+    }
+
     public void playAmbient(String type) {
+        this.selectedAmbient = type;
         if (ambientPlayer != null) {
             ambientPlayer.stop();
             ambientPlayer.release();
