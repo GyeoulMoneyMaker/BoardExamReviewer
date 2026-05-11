@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.text.Editable;
 import android.text.TextWatcher;
+import androidx.appcompat.app.AlertDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,7 +27,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * [SUB-MODULE: POMODORO CLOCK]
  * This fragment manages the study timer, white noise, and session tracking.
  */
 public class PomodoroFragment extends Fragment {
@@ -116,9 +116,9 @@ public class PomodoroFragment extends Fragment {
         timerService.onFinishListener = () -> {
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
-                    playAlarm();
                     saveSession();
                     isWorking = !isWorking;
+                    showAlarmPopup();
                     resetTimer();
                 });
             }
@@ -217,11 +217,22 @@ public class PomodoroFragment extends Fragment {
         binding.tvTimerDisplay.setText(String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds));
     }
 
-    private void playAlarm() {
-        try {
-            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            RingtoneManager.getRingtone(requireContext(), notification).play();
-        } catch (Exception e) {}
+    private void showAlarmPopup() {
+        if (timerService == null) return;
+        
+        String selectedAlarm = binding.spinnerAlarm.getText().toString();
+        timerService.playAlarm(selectedAlarm);
+
+        new AlertDialog.Builder(requireContext())
+            .setTitle("Time's Up!")
+            .setMessage(isWorking ? "Break time is over! Back to work?" : "Focus session finished! Take a break?")
+            .setCancelable(false)
+            .setPositiveButton("Stop Alarm", (dialog, which) -> {
+                if (timerService != null) {
+                    timerService.stopAlarm();
+                }
+            })
+            .show();
     }
 
     private void saveSession() {

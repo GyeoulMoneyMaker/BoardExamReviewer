@@ -30,7 +30,6 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * [SUB-MODULE: AI QUIZ GENERATOR]
  * This fragment uses AI to generate questions from your document.
  */
 public class QuizFragment extends Fragment {

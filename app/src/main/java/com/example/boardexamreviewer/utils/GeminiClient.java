@@ -7,7 +7,6 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 /**
- * [SUB-MODULE: GEMINI CLIENT]
  * Handles the network connection to Google Gemini.
  */
 public class GeminiClient {

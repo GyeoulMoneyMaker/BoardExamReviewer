@@ -3,7 +3,6 @@ package com.example.boardexamreviewer.utils;
 import com.example.boardexamreviewer.BuildConfig;
 
 /**
- * [SUB-MODULE: APP CONFIGURATION]
  * This file stores your API keys and settings.
  */
 public class AppConfig {

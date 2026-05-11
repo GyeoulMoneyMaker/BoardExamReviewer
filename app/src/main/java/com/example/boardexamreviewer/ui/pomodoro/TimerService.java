@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * [SUB-MODULE: TIMER ENGINE]
  * This service runs in the background to keep the study timer alive.
  */
 public class TimerService extends Service {
@@ -206,10 +205,19 @@ public class TimerService extends Service {
             Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
             alarmPlayer = MediaPlayer.create(this, alarmUri);
             if (alarmPlayer != null) {
+                alarmPlayer.setLooping(true);
                 alarmPlayer.start();
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public void stopAlarm() {
+        if (alarmPlayer != null) {
+            alarmPlayer.stop();
+            alarmPlayer.release();
+            alarmPlayer = null;
         }
     }
 

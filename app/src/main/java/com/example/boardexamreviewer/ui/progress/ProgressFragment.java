@@ -24,7 +24,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * [SUB-MODULE: PROGRESS TRACKING]
  * This fragment shows the user's total study time and session history.
  */
 public class ProgressFragment extends Fragment {
