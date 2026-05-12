@@ -8,21 +8,20 @@ import androidx.room.PrimaryKey;
 public class QuizEntity {
     @PrimaryKey(autoGenerate = true)
     public int id = 0;
-    public int userId = 0;
     public int documentId;
     public String title;
     public String questionsJson;
-    public int score = 0;
+    public double masteryPercentage = 0.0;
     public long timestamp = System.currentTimeMillis();
 
     @Ignore
     public QuizEntity() {}
 
-    public QuizEntity(int userId, int documentId, String title, String questionsJson) {
-        this.userId = userId;
+    public QuizEntity(int documentId, String title, String questionsJson, double masteryPercentage) {
         this.documentId = documentId;
         this.title = title;
         this.questionsJson = questionsJson;
+        this.masteryPercentage = masteryPercentage;
         this.timestamp = System.currentTimeMillis();
     }
 }

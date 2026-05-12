@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -44,13 +43,9 @@ public class PomodoroFragment extends Fragment {
             TimerService.TimerBinder binder = (TimerService.TimerBinder) service;
             timerService = binder.getService();
             
-            SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-            int currentUserId = prefs.getInt("current_user_id", -1);
-            timerService.prepareForUser(currentUserId);
-            
             isBound = true;
             
-            // Sync initial sound settings
+            SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
             String savedNoise = prefs.getString("selected_ambient", "None");
             String savedAlarm = prefs.getString("selected_alarm", "Wake Up");
             timerService.setSelectedAmbient(savedNoise);
@@ -109,7 +104,7 @@ public class PomodoroFragment extends Fragment {
             }
         });
 
-        binding.btnReset.setOnClickListener(v -> resetTimer());
+        binding.btnStop.setOnClickListener(v -> stopTimer());
 
         binding.btnExtend.setOnClickListener(v -> {
             if (!extensionUsed && timerService != null && timerService.isTimerRunning) {
@@ -123,19 +118,13 @@ public class PomodoroFragment extends Fragment {
         timerService.onFinishListener = () -> {
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
-                    saveSession();
+                    if (isWorking) {
+                        saveSession();
+                    }
                     isWorking = !isWorking;
                     showAlarmPopup();
                     
-                    // Reset UI without stopping the alarm audio
-                    long workMins;
-                    try {
-                        workMins = Long.parseLong(binding.etWorkTime.getText().toString());
-                    } catch (NumberFormatException e) {
-                        workMins = 25;
-                    }
-                    updateCountDownText(workMins * 60 * 1000);
-                    binding.btnStartPause.setText("Start Focus Session");
+                    updateUIFromService();
                     extensionUsed = false;
                 });
             }
@@ -144,18 +133,30 @@ public class PomodoroFragment extends Fragment {
 
     private void updateUIFromService() {
         if (timerService != null) {
-            if (timerService.isTimerRunning || timerService.timeLeftInMillis > 0) {
+            boolean isRunning = timerService.isTimerRunning;
+            binding.etWorkTime.setEnabled(!isRunning);
+            binding.etBreakTime.setEnabled(!isRunning);
+
+            if (isRunning || timerService.timeLeftInMillis > 0) {
                 updateCountDownText(timerService.timeLeftInMillis);
+                isWorking = !timerService.isBreakMode;
             } else {
-                long workMins;
+                long mins;
                 try {
-                    workMins = Long.parseLong(binding.etWorkTime.getText().toString());
+                    mins = Long.parseLong(isWorking ? binding.etWorkTime.getText().toString() : binding.etBreakTime.getText().toString());
                 } catch (NumberFormatException e) {
-                    workMins = 25;
+                    mins = isWorking ? 25 : 5;
                 }
-                updateCountDownText(workMins * 60 * 1000);
+                updateCountDownText(mins * 60 * 1000);
             }
-            binding.btnStartPause.setText(timerService.isTimerRunning ? "PAUSE" : (timerService.timeLeftInMillis > 0 ? "RESUME" : "START FOCUS SESSION"));
+            
+            if (isRunning) {
+                binding.btnStartPause.setText("PAUSE");
+            } else if (timerService.timeLeftInMillis > 0) {
+                binding.btnStartPause.setText("RESUME");
+            } else {
+                binding.btnStartPause.setText(isWorking ? "START FOCUS SESSION" : "START BREAK");
+            }
         }
     }
 
@@ -236,8 +237,6 @@ public class PomodoroFragment extends Fragment {
     private void startTimer() {
         if (timerService == null) return;
         
-        SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int currentUserId = prefs.getInt("current_user_id", -1);
         long duration;
         if (timerService.timeLeftInMillis > 0) {
             duration = timerService.timeLeftInMillis;
@@ -250,7 +249,7 @@ public class PomodoroFragment extends Fragment {
             }
             duration = mins * 60 * 1000;
         }
-        timerService.startTimer(duration, currentUserId);
+        timerService.startTimer(duration, !isWorking);
         
         String selectedAmbient = binding.spinnerWhiteNoise.getText().toString();
         timerService.playAmbient(selectedAmbient);
@@ -265,7 +264,7 @@ public class PomodoroFragment extends Fragment {
         }
     }
 
-    private void resetTimer() {
+    private void stopTimer() {
         if (timerService != null) {
             timerService.resetTimer();
         }
@@ -278,16 +277,16 @@ public class PomodoroFragment extends Fragment {
             workMins = 25;
         }
         updateCountDownText(workMins * 60 * 1000);
-        binding.btnStartPause.setText("Start Focus Session");
+        binding.btnStartPause.setText("START FOCUS SESSION");
+        binding.etWorkTime.setEnabled(true);
+        binding.etBreakTime.setEnabled(true);
     }
 
     private void extendTimer() {
         if (timerService == null) return;
         
-        SharedPreferences prefs = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int currentUserId = prefs.getInt("current_user_id", -1);
         long newTime = timerService.timeLeftInMillis + 5 * 60 * 1000;
-        timerService.startTimer(newTime, currentUserId);
+        timerService.startTimer(newTime, !isWorking);
         extensionUsed = true;
         binding.btnExtend.setEnabled(false);
         Toast.makeText(getContext(), "Extended by 5 minutes", Toast.LENGTH_SHORT).show();
@@ -303,10 +302,9 @@ public class PomodoroFragment extends Fragment {
     private void showAlarmPopup() {
         if (timerService == null) return;
         
-        // The service already started the alarm sound, we just show the UI
         new AlertDialog.Builder(requireContext())
             .setTitle("Time's Up!")
-            .setMessage(isWorking ? "Break time is over! Back to work?" : "Focus session finished! Take a break?")
+            .setMessage(!isWorking ? "Break time is over! Ready to focus?" : "Focus session finished! Time for a rest?")
             .setCancelable(false)
             .setPositiveButton("Stop Alarm", (dialog, which) -> {
                 if (timerService != null) {
@@ -318,7 +316,6 @@ public class PomodoroFragment extends Fragment {
     }
 
     private void saveSession() {
-        if (!isWorking) return;
         int tempDuration;
         try {
             tempDuration = Integer.parseInt(binding.etWorkTime.getText().toString());
@@ -327,12 +324,10 @@ public class PomodoroFragment extends Fragment {
         }
         final int duration = tempDuration;
         Context appContext = requireContext().getApplicationContext();
-        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        final int userId = prefs.getInt("current_user_id", -1);
 
         executorService.execute(() -> {
             AppDatabase db = AppDatabase.getDatabase(appContext);
-            db.appDao().insertStudySession(new StudySessionEntity(userId, duration, "Work"));
+            db.appDao().insertStudySession(new StudySessionEntity(duration, "Work"));
         });
     }
 

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_white">
+    android:background="@color/background_beige">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -16,7 +16,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Study Clock"
-            android:textColor="@color/primary_dark_blue"
+            android:textColor="@color/primary_dark_brown"
             android:textSize="28sp"
             android:textStyle="bold"
             android:layout_marginBottom="24dp" />
@@ -26,7 +26,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="25:00"
-            android:textColor="@color/primary_blue"
+            android:textColor="@color/primary_brown"
             android:textSize="80sp"
             android:textStyle="bold"
             android:layout_marginBottom="30dp" />
@@ -125,16 +125,16 @@
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:text="EXTEND +5 MINS"
-            android:textColor="@color/primary_blue"
+            android:textColor="@color/primary_brown"
             android:layout_marginBottom="12dp" />
 
         <Button
-            android:id="@+id/btn_reset"
+            android:id="@+id/btn_stop"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="RESET TIMER"
-            android:textColor="@color/text_gray" />
+            android:text="STOP &amp; RESET"
+            android:textColor="#C62828" />
 
     </LinearLayout>
 </ScrollView>

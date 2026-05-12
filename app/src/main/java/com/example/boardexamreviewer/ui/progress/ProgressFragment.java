@@ -1,7 +1,6 @@
 package com.example.boardexamreviewer.ui.progress;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -54,19 +53,11 @@ public class ProgressFragment extends Fragment {
         Context appContext = getContext() != null ? getContext().getApplicationContext() : null;
         if (appContext == null) return;
 
-        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int userId = prefs.getInt("current_user_id", -1);
-
-        if (userId == -1) {
-            binding.tvTotalTime.setText("Please Log In");
-            return;
-        }
-
         executorService.execute(() -> {
             AppDatabase db = AppDatabase.getDatabase(appContext);
-            Integer totalTimeInt = db.appDao().getTotalStudyTime(userId);
+            Integer totalTimeInt = db.appDao().getTotalStudyTime();
             final int totalTime = totalTimeInt != null ? totalTimeInt : 0;
-            final List<StudySessionEntity> sessions = db.appDao().getStudySessionsByUser(userId);
+            final List<StudySessionEntity> sessions = db.appDao().getAllStudySessions();
 
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {

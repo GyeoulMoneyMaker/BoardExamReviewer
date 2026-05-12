@@ -8,13 +8,10 @@ import androidx.room.RoomDatabase;
 @Database(
     entities = {
         DocumentEntity.class,
-        ReviewerEntity.class,
         QuizEntity.class,
-        UserEntity.class,
-        CategoryEntity.class,
         StudySessionEntity.class
     },
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {

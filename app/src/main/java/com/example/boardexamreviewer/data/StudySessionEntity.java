@@ -8,7 +8,6 @@ import androidx.room.PrimaryKey;
 public class StudySessionEntity {
     @PrimaryKey(autoGenerate = true)
     public int id = 0;
-    public int userId;
     public int durationMinutes;
     public String sessionType;
     public long timestamp = System.currentTimeMillis();
@@ -16,8 +15,7 @@ public class StudySessionEntity {
     @Ignore
     public StudySessionEntity() {}
 
-    public StudySessionEntity(int userId, int durationMinutes, String sessionType) {
-        this.userId = userId;
+    public StudySessionEntity(int durationMinutes, String sessionType) {
         this.durationMinutes = durationMinutes;
         this.sessionType = sessionType;
         this.timestamp = System.currentTimeMillis();

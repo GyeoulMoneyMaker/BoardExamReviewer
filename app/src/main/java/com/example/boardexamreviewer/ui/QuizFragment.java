@@ -1,7 +1,6 @@
 package com.example.boardexamreviewer.ui;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -30,14 +29,13 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * This fragment uses AI to generate questions from your document.
+ * This fragment uses AI to generate questions from multiple study materials.
  */
 public class QuizFragment extends Fragment {
 
     private FragmentQuizBinding binding;
     private List<QuizQuestion> currentQuestions = new ArrayList<>();
-    private int selectedSourceId = -1;
-    private boolean isSourceReviewer = false;
+    private List<Integer> selectedSourceIds = new ArrayList<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Nullable
@@ -51,8 +49,6 @@ public class QuizFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        binding.btnCheckAnswers.setOnClickListener(v -> checkAnswers());
-        binding.btnSaveQuiz.setOnClickListener(v -> saveQuiz());
         binding.btnGenerateQuiz.setOnClickListener(v -> generateQuiz());
         binding.btnViewHistory.setOnClickListener(v -> 
             NavHostFragment.findNavController(this).navigate(R.id.navigation_saved)
@@ -62,47 +58,50 @@ public class QuizFragment extends Fragment {
         int requestedQuizId = getArguments() != null ? getArguments().getInt("quizId", -1) : -1;
         if (requestedQuizId != -1) {
             loadSpecificQuiz(requestedQuizId);
-        } else {
-            loadLatestQuiz();
         }
     }
 
     private void showSourceSelectionDialog() {
         Context appContext = requireContext().getApplicationContext();
-        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int currentUserId = prefs.getInt("current_user_id", -1);
 
         executorService.execute(() -> {
             AppDatabase db = AppDatabase.getDatabase(appContext);
-            List<DocumentEntity> docs = db.appDao().getAllDocumentsByUser(currentUserId);
-            List<ReviewerEntity> reviewers = db.appDao().getAllReviewersByUser(currentUserId);
+            List<DocumentEntity> docs = db.appDao().getAllDocuments();
             
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
-                    List<String> optionsList = new ArrayList<>();
-                    for (DocumentEntity d : docs) optionsList.add("[Doc] " + d.fileName);
-                    for (ReviewerEntity r : reviewers) optionsList.add("[Reviewer] " + r.title);
-
-                    if (optionsList.isEmpty()) {
-                        Toast.makeText(getContext(), "No files or reviewers found!", Toast.LENGTH_SHORT).show();
+                    if (docs.isEmpty()) {
+                        Toast.makeText(getContext(), "No study materials found!", Toast.LENGTH_SHORT).show();
                         return;
                     }
 
-                    String[] allOptions = optionsList.toArray(new String[0]);
+                    String[] allOptions = new String[docs.size()];
+                    boolean[] checkedItems = new boolean[docs.size()];
+                    for (int i = 0; i < docs.size(); i++) {
+                        DocumentEntity d = docs.get(i);
+                        allOptions[i] = "[" + d.subject + "] " + d.topic;
+                        checkedItems[i] = selectedSourceIds.contains(d.id);
+                    }
+
+                    List<Integer> tempSelected = new ArrayList<>(selectedSourceIds);
 
                     new AlertDialog.Builder(requireContext())
-                        .setTitle("Choose Quiz Source")
-                        .setItems(allOptions, (dialog, which) -> {
-                            if (which < docs.size()) {
-                                DocumentEntity selected = docs.get(which);
-                                selectedSourceId = selected.id;
-                                isSourceReviewer = false;
-                                binding.tvQuizSource.setText("Source: " + selected.fileName);
+                        .setTitle("Select Topics (Multi-select)")
+                        .setMultiChoiceItems(allOptions, checkedItems, (dialog, which, isChecked) -> {
+                            int id = docs.get(which).id;
+                            if (isChecked) {
+                                if (!tempSelected.contains(id)) tempSelected.add(id);
                             } else {
-                                ReviewerEntity selected = reviewers.get(which - docs.size());
-                                selectedSourceId = selected.id;
-                                isSourceReviewer = true;
-                                binding.tvQuizSource.setText("Source: " + selected.title);
+                                tempSelected.remove(Integer.valueOf(id));
+                            }
+                        })
+                        .setPositiveButton("OK", (dialog, which) -> {
+                            selectedSourceIds.clear();
+                            selectedSourceIds.addAll(tempSelected);
+                            if (selectedSourceIds.isEmpty()) {
+                                binding.tvQuizSource.setText("Source: Latest Upload");
+                            } else {
+                                binding.tvQuizSource.setText("Source: " + selectedSourceIds.size() + " Topics Selected");
                             }
                         })
                         .setNegativeButton("Cancel", null)
@@ -116,12 +115,9 @@ public class QuizFragment extends Fragment {
         Context appContext = getContext() != null ? getContext().getApplicationContext() : null;
         if (appContext == null) return;
 
-        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int currentUserId = prefs.getInt("current_user_id", -1);
-
         executorService.execute(() -> {
             AppDatabase db = AppDatabase.getDatabase(appContext);
-            List<QuizEntity> quizzes = db.appDao().getAllQuizzesByUser(currentUserId);
+            List<QuizEntity> quizzes = db.appDao().getAllQuizzes();
             QuizEntity quiz = null;
             for (QuizEntity q : quizzes) {
                 if (q.id == quizId) {
@@ -135,8 +131,7 @@ public class QuizFragment extends Fragment {
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
                         if (binding != null) {
-                            List<QuizQuestion> questions = QuizParser.fromJson(finalQuiz.questionsJson);
-                            displayQuestions(questions);
+                            navigateToActiveQuiz(finalQuiz.questionsJson, finalQuiz.title);
                             Toast.makeText(getContext(), "Retaking: " + finalQuiz.title, Toast.LENGTH_SHORT).show();
                         }
                     });
@@ -145,27 +140,12 @@ public class QuizFragment extends Fragment {
         });
     }
 
-    private void loadLatestQuiz() {
-        Context appContext = getContext() != null ? getContext().getApplicationContext() : null;
-        if (appContext == null) return;
-
-        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int currentUserId = prefs.getInt("current_user_id", -1);
-
-        executorService.execute(() -> {
-            AppDatabase db = AppDatabase.getDatabase(appContext);
-            List<QuizEntity> quizzes = db.appDao().getAllQuizzesByUser(currentUserId);
-            if (!quizzes.isEmpty()) {
-                final QuizEntity latest = quizzes.get(0);
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        if (binding != null) {
-                            processAiResponse(latest.questionsJson);
-                        }
-                    });
-                }
-            }
-        });
+    private void navigateToActiveQuiz(String json, String title) {
+        Bundle bundle = new Bundle();
+        bundle.putString("quizJson", json);
+        bundle.putString("title", title);
+        bundle.putIntegerArrayList("sourceIds", new ArrayList<>(selectedSourceIds));
+        NavHostFragment.findNavController(this).navigate(R.id.navigation_quiz_active, bundle);
     }
 
     private void generateQuiz() {
@@ -177,34 +157,51 @@ public class QuizFragment extends Fragment {
             return;
         }
 
+        int qCount;
+        try {
+            qCount = Integer.parseInt(binding.etQuestionCount.getText().toString());
+            if (qCount < 1) qCount = 5;
+            if (qCount > 20) qCount = 20; 
+        } catch (Exception e) {
+            qCount = 5;
+        }
+
         binding.progressBar.setVisibility(View.VISIBLE);
         binding.btnGenerateQuiz.setEnabled(false);
 
-        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int currentUserId = prefs.getInt("current_user_id", -1);
+        final int finalQCount = qCount;
 
         executorService.execute(() -> {
             try {
                 AppDatabase db = AppDatabase.getDatabase(appContext);
-                String sourceText = "";
-                if (selectedSourceId != -1) {
-                    if (isSourceReviewer) {
-                        List<ReviewerEntity> reviewers = db.appDao().getAllReviewersByUser(currentUserId);
-                        for (ReviewerEntity r : reviewers) if (r.id == selectedSourceId) { sourceText = r.content; break; }
-                    } else {
-                        List<DocumentEntity> docs = db.appDao().getAllDocumentsByUser(currentUserId);
-                        for (DocumentEntity d : docs) if (d.id == selectedSourceId) { sourceText = d.extractedText; break; }
+                StringBuilder sourceTextBuilder = new StringBuilder();
+                StringBuilder topicsListBuilder = new StringBuilder();
+                
+                List<DocumentEntity> allDocs = db.appDao().getAllDocuments();
+                if (selectedSourceIds.isEmpty()) {
+                    DocumentEntity lastDoc = db.appDao().getLastDocument();
+                    if (lastDoc != null) {
+                        sourceTextBuilder.append(lastDoc.extractedText);
+                        topicsListBuilder.append(lastDoc.topic);
                     }
                 } else {
-                    DocumentEntity lastDoc = db.appDao().getLastDocumentByUser(currentUserId);
-                    if (lastDoc != null) sourceText = lastDoc.extractedText;
+                    for (DocumentEntity d : allDocs) {
+                        if (selectedSourceIds.contains(d.id)) {
+                            sourceTextBuilder.append(d.extractedText).append("\n\n");
+                            if (topicsListBuilder.length() > 0) topicsListBuilder.append(", ");
+                            topicsListBuilder.append(d.topic);
+                        }
+                    }
                 }
+
+                String sourceText = sourceTextBuilder.toString();
+                String topicName = topicsListBuilder.toString();
 
                 if (sourceText.length() < 10) {
                     if (getActivity() != null) {
                         getActivity().runOnUiThread(() -> {
                             if (binding != null) {
-                                Toast.makeText(getContext(), "Upload a document first!", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getContext(), "Upload study material first!", Toast.LENGTH_SHORT).show();
                                 binding.progressBar.setVisibility(View.GONE);
                                 binding.btnGenerateQuiz.setEnabled(true);
                             }
@@ -213,7 +210,7 @@ public class QuizFragment extends Fragment {
                     return;
                 }
 
-                String prompt = "Generate 5 multiple choice questions for a board exam based on this text:\n" +
+                String prompt = "Generate " + finalQCount + " multiple choice questions for a board exam based on this text:\n" +
                                 sourceText + "\n" +
                                 "Return ONLY a JSON array with: question, optionA, optionB, optionC, optionD, correctAnswer (A, B, C, or D).";
 
@@ -223,6 +220,7 @@ public class QuizFragment extends Fragment {
                 contents.add(new GeminiRequest.Content(parts));
                 GeminiRequest request = new GeminiRequest(contents);
 
+                final String finalTopicName = topicName;
                 GeminiClient.apiService.generateContent(AppConfig.GEMINI_MODEL, AppConfig.GEMINI_API_KEY, request).enqueue(new Callback<GeminiResponse>() {
                     @Override
                     public void onResponse(@NonNull Call<GeminiResponse> call, @NonNull Response<GeminiResponse> response) {
@@ -241,9 +239,12 @@ public class QuizFragment extends Fragment {
                                             
                                             String jsonString = body.candidates.get(0).content.parts.get(0).text;
                                             if (jsonString != null && !jsonString.trim().isEmpty()) {
-                                                processAiResponse(jsonString);
-                                                binding.questionsLayout.requestFocus();
-                                                Toast.makeText(getContext(), "Quiz Successfully Generated!", Toast.LENGTH_SHORT).show();
+                                                int firstBracket = jsonString.indexOf("[");
+                                                int lastBracket = jsonString.lastIndexOf("]");
+                                                if (firstBracket != -1 && lastBracket != -1) {
+                                                    String cleanJson = jsonString.substring(firstBracket, lastBracket + 1);
+                                                    navigateToActiveQuiz(cleanJson, "Quiz: " + (finalTopicName.length() > 30 ? "Multiple Topics" : finalTopicName));
+                                                }
                                             }
                                         }
                                     } else {
@@ -277,105 +278,6 @@ public class QuizFragment extends Fragment {
                         }
                     });
                 }
-            }
-        });
-    }
-
-    private void processAiResponse(String jsonString) {
-        try {
-            int firstBracket = jsonString.indexOf("[");
-            int lastBracket = jsonString.lastIndexOf("]");
-            
-            if (firstBracket != -1 && lastBracket != -1 && lastBracket > firstBracket) {
-                String cleanJson = jsonString.substring(firstBracket, lastBracket + 1);
-                List<QuizQuestion> questions = QuizParser.fromJson(cleanJson);
-                if (!questions.isEmpty()) {
-                    displayQuestions(questions);
-                }
-            } else {
-                Toast.makeText(getContext(), "AI format error. Try again.", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Toast.makeText(getContext(), "AI returned invalid data.", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void displayQuestions(List<QuizQuestion> questions) {
-        currentQuestions = questions;
-        binding.questionsLayout.removeAllViews();
-        binding.tvScore.setVisibility(View.GONE);
-
-        for (int i = 0; i < questions.size(); i++) {
-            QuizQuestion q = questions.get(i);
-            View qView = getLayoutInflater().inflate(R.layout.item_quiz_question, binding.questionsLayout, false);
-            ((TextView) qView.findViewById(R.id.tv_question_text)).setText((i + 1) + ". " + q.question);
-            ((RadioButton) qView.findViewById(R.id.rb_a)).setText(q.optionA);
-            ((RadioButton) qView.findViewById(R.id.rb_b)).setText(q.optionB);
-            ((RadioButton) qView.findViewById(R.id.rb_c)).setText(q.optionC);
-            ((RadioButton) qView.findViewById(R.id.rb_d)).setText(q.optionD);
-            binding.questionsLayout.addView(qView);
-        }
-    }
-
-    private void checkAnswers() {
-        if (currentQuestions.isEmpty()) return;
-        int score = 0;
-        for (int i = 0; i < binding.questionsLayout.getChildCount(); i++) {
-            View qView = binding.questionsLayout.getChildAt(i);
-            RadioGroup radioGroup = qView.findViewById(R.id.rg_options);
-            int selectedId = radioGroup.getCheckedRadioButtonId();
-            if (selectedId != -1) {
-                RadioButton selectedButton = qView.findViewById(selectedId);
-                int selectedIndex = radioGroup.indexOfChild(selectedButton);
-                String selectedLetter = "";
-                switch (selectedIndex) {
-                    case 0: selectedLetter = "A"; break;
-                    case 1: selectedLetter = "B"; break;
-                    case 2: selectedLetter = "C"; break;
-                    case 3: selectedLetter = "D"; break;
-                }
-                if (selectedLetter.equals(currentQuestions.get(i).correctAnswer)) score++;
-            }
-        }
-        binding.tvScore.setText("Score: " + score + "/" + currentQuestions.size());
-        binding.tvScore.setVisibility(View.VISIBLE);
-    }
-
-    private void saveQuiz() {
-        if (currentQuestions.isEmpty()) return;
-        Context appContext = requireContext().getApplicationContext();
-        SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        int currentUserId = prefs.getInt("current_user_id", -1);
-        
-        executorService.execute(() -> {
-            AppDatabase db = AppDatabase.getDatabase(appContext);
-            String sourceName = "Document";
-            if (selectedSourceId != -1) {
-                if (isSourceReviewer) {
-                    List<ReviewerEntity> reviewers = db.appDao().getAllReviewersByUser(currentUserId);
-                    for (ReviewerEntity r : reviewers) if (r.id == selectedSourceId) { sourceName = r.title; break; }
-                } else {
-                    List<DocumentEntity> docs = db.appDao().getAllDocumentsByUser(currentUserId);
-                    for (DocumentEntity d : docs) if (d.id == selectedSourceId) { sourceName = d.fileName; break; }
-                }
-            } else {
-                DocumentEntity lastDoc = db.appDao().getLastDocumentByUser(currentUserId);
-                if (lastDoc != null) sourceName = lastDoc.fileName;
-            }
-
-            QuizEntity quiz = new QuizEntity(
-                currentUserId,
-                isSourceReviewer ? 0 : selectedSourceId,
-                "Quiz for " + sourceName,
-                QuizParser.toJson(currentQuestions)
-            );
-            db.appDao().insertQuiz(quiz);
-            if (getActivity() != null) {
-                getActivity().runOnUiThread(() -> {
-                    if (binding != null) {
-                        Toast.makeText(getContext(), "Quiz Saved! View it in 'Saved Items' to retake later.", Toast.LENGTH_LONG).show();
-                    }
-                });
             }
         });
     }

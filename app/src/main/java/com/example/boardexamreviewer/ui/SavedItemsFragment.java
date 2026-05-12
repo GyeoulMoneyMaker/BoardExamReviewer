@@ -14,7 +14,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.boardexamreviewer.R;
 import com.example.boardexamreviewer.data.AppDatabase;
 import com.example.boardexamreviewer.data.QuizEntity;
-import com.example.boardexamreviewer.data.ReviewerEntity;
 import com.example.boardexamreviewer.databinding.FragmentSavedBinding;
 import com.example.boardexamreviewer.databinding.ItemSavedBinding;
 import com.google.android.material.tabs.TabLayout;
@@ -27,13 +26,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * SavedItemsFragment displays saved reviewers and quizzes.
+ * SavedItemsFragment displays saved quizzes.
  */
 public class SavedItemsFragment extends Fragment {
 
     private FragmentSavedBinding binding;
     private SavedItemsAdapter adapter;
-    private boolean showingReviewers = true;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Nullable
@@ -51,36 +49,19 @@ public class SavedItemsFragment extends Fragment {
         binding.rvSavedItems.setLayoutManager(new LinearLayoutManager(getContext()));
         binding.rvSavedItems.setAdapter(adapter);
 
-        binding.tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override
-            public void onTabSelected(TabLayout.Tab tab) {
-                showingReviewers = tab.getPosition() == 0;
-                loadItems();
-            }
-
-            @Override
-            public void onTabUnselected(TabLayout.Tab tab) {}
-
-            @Override
-            public void onTabReselected(TabLayout.Tab tab) {}
-        });
-
+        binding.tabLayout.setVisibility(View.GONE); // Only Quizzes now
         loadItems();
     }
 
     private void loadItems() {
         Context appContext = requireContext().getApplicationContext();
-        int currentUserId = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE).getInt("current_user_id", -1);
         
         executorService.execute(() -> {
             AppDatabase db = AppDatabase.getDatabase(appContext);
             List<SavedItem> items = new ArrayList<>();
-            if (showingReviewers) {
-                List<ReviewerEntity> reviewers = db.appDao().getAllReviewersByUser(currentUserId);
-                for (ReviewerEntity r : reviewers) items.add(new SavedItem(r.id, r.title, r.timestamp, true));
-            } else {
-                List<QuizEntity> quizzes = db.appDao().getAllQuizzesByUser(currentUserId);
-                for (QuizEntity q : quizzes) items.add(new SavedItem(q.id, q.title, q.timestamp, false));
+            List<QuizEntity> quizzes = db.appDao().getAllQuizzes();
+            for (QuizEntity q : quizzes) {
+                items.add(new SavedItem(q.id, q.title, q.timestamp, q.masteryPercentage));
             }
 
             if (getActivity() != null) {
@@ -107,13 +88,8 @@ public class SavedItemsFragment extends Fragment {
 
     private void onActionClicked(SavedItem item) {
         Bundle bundle = new Bundle();
-        if (item.isReviewer) {
-            bundle.putInt("reviewerId", item.id);
-            NavHostFragment.findNavController(this).navigate(R.id.navigation_reviewer, bundle);
-        } else {
-            bundle.putInt("quizId", item.id);
-            NavHostFragment.findNavController(this).navigate(R.id.navigation_quiz, bundle);
-        }
+        bundle.putInt("quizId", item.id);
+        NavHostFragment.findNavController(this).navigate(R.id.navigation_quiz, bundle);
     }
 
     // --- Helper Class ---
@@ -121,13 +97,13 @@ public class SavedItemsFragment extends Fragment {
         final int id;
         final String title;
         final long timestamp;
-        final boolean isReviewer;
+        final double mastery;
 
-        SavedItem(int id, String title, long timestamp, boolean isReviewer) {
+        SavedItem(int id, String title, long timestamp, double mastery) {
             this.id = id;
             this.title = title;
             this.timestamp = timestamp;
-            this.isReviewer = isReviewer;
+            this.mastery = mastery;
         }
     }
 
@@ -168,9 +144,10 @@ public class SavedItemsFragment extends Fragment {
             void bind(SavedItem item) {
                 binding.tvTitle.setText(item.title);
                 SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy - hh:mm a", Locale.getDefault());
-                binding.tvDate.setText(sdf.format(new Date(item.timestamp)));
+                String dateStr = sdf.format(new Date(item.timestamp));
+                binding.tvDate.setText(String.format(java.util.Locale.getDefault(), "%s | Mastery: %.1f%%", dateStr, item.mastery));
                 
-                binding.btnAction.setText(item.isReviewer ? "View" : "Retake");
+                binding.btnAction.setText("Retake");
                 binding.btnAction.setOnClickListener(v -> onActionClicked(item));
             }
         }

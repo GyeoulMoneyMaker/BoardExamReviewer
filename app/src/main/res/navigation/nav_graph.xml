@@ -18,22 +18,10 @@
         tools:layout="@layout/fragment_files" />
 
     <fragment
-        android:id="@+id/navigation_reviewer"
-        android:name="com.example.boardexamreviewer.ui.ReviewerFragment"
-        android:label="Reviewer"
-        tools:layout="@layout/fragment_reviewer" />
-
-    <fragment
         android:id="@+id/navigation_quiz"
         android:name="com.example.boardexamreviewer.ui.QuizFragment"
         android:label="Quiz"
         tools:layout="@layout/fragment_quiz" />
-
-    <fragment
-        android:id="@+id/navigation_profile"
-        android:name="com.example.boardexamreviewer.ui.profile.ProfileFragment"
-        android:label="Profile"
-        tools:layout="@layout/fragment_profile" />
 
     <fragment
         android:id="@+id/navigation_pomodoro"
@@ -52,4 +40,10 @@
         android:name="com.example.boardexamreviewer.ui.SavedItemsFragment"
         android:label="Saved Items"
         tools:layout="@layout/fragment_saved" />
+
+    <fragment
+        android:id="@+id/navigation_quiz_active"
+        android:name="com.example.boardexamreviewer.ui.QuizActiveFragment"
+        android:label="Active Quiz"
+        tools:layout="@layout/fragment_quiz_active" />
 </navigation>

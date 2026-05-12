@@ -3,7 +3,6 @@ package com.example.boardexamreviewer.ui;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -62,10 +61,6 @@ public class HomeFragment extends Fragment {
             NavHostFragment.findNavController(this).navigate(R.id.navigation_files)
         );
 
-        binding.btnGenReviewer.setOnClickListener(v -> 
-            NavHostFragment.findNavController(this).navigate(R.id.navigation_reviewer)
-        );
-
         binding.btnGenQuiz.setOnClickListener(v -> 
             NavHostFragment.findNavController(this).navigate(R.id.navigation_quiz)
         );
@@ -90,23 +85,68 @@ public class HomeFragment extends Fragment {
     }
 
     private void handleSelectedFile(Uri uri) {
+        String fileName = DocumentExtractor.getFileName(requireContext(), uri);
+
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(50, 40, 50, 10);
+
+        final android.widget.TextView tvFileName = new android.widget.TextView(requireContext());
+        tvFileName.setText("File: " + fileName);
+        tvFileName.setTextSize(16);
+        tvFileName.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvFileName.setPadding(0, 0, 0, 20);
+        layout.addView(tvFileName);
+
+        final android.widget.EditText etSubject = new android.widget.EditText(requireContext());
+        etSubject.setHint("Subject (e.g. Mathematics)");
+        layout.addView(etSubject);
+
+        final android.widget.EditText etTopic = new android.widget.EditText(requireContext());
+        etTopic.setHint("Topic (e.g. Algebra)");
+        layout.addView(etTopic);
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("Categorize Material")
+            .setView(layout)
+            .setCancelable(false)
+            .setPositiveButton("Upload", (dialog, which) -> {
+                String subject = normalizeString(etSubject.getText().toString());
+                String topic = normalizeString(etTopic.getText().toString());
+                if (subject.isEmpty() || topic.isEmpty()) {
+                    Toast.makeText(getContext(), "Please fill all fields", Toast.LENGTH_SHORT).show();
+                    handleSelectedFile(uri); // Retry
+                    return;
+                }
+                saveFileToDb(uri, subject, topic);
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    private String normalizeString(String input) {
+        if (input == null || input.isEmpty()) return "";
+        String trimmed = input.trim();
+        if (trimmed.isEmpty()) return "";
+        
+        // Use Title Case: capitalize first letter, rest lowercase
+        if (trimmed.length() == 1) return trimmed.toUpperCase();
+        return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
+    }
+
+    private void saveFileToDb(Uri uri, String subject, String topic) {
         Context appContext = requireContext().getApplicationContext();
         binding.progressBar.setVisibility(View.VISIBLE);
 
         executorService.execute(() -> {
             try {
-                // 1. Extract Text
                 String text = DocumentExtractor.extractText(appContext, uri);
                 String fileName = DocumentExtractor.getFileName(appContext, uri);
 
-                // 2. Save to Database
                 AppDatabase db = AppDatabase.getDatabase(appContext);
-                SharedPreferences prefs = appContext.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-                int currentUserId = prefs.getInt("current_user_id", -1);
-
                 DocumentEntity doc = new DocumentEntity(
-                    currentUserId,
-                    0,
+                    subject,
+                    topic,
                     fileName, 
                     uri.toString(), 
                     text
@@ -117,7 +157,7 @@ public class HomeFragment extends Fragment {
                     getActivity().runOnUiThread(() -> {
                         if (binding != null) {
                             binding.progressBar.setVisibility(View.GONE);
-                            Toast.makeText(getContext(), "Uploaded to Profile: " + fileName, Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getContext(), "Uploaded: " + fileName, Toast.LENGTH_SHORT).show();
                         }
                     });
                 }

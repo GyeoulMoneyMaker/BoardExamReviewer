@@ -8,8 +8,8 @@ import androidx.room.PrimaryKey;
 public class DocumentEntity {
     @PrimaryKey(autoGenerate = true)
     public int id = 0;
-    public int userId = 0;
-    public int categoryId = 0;
+    public String subject;
+    public String topic;
     public String fileName;
     public String filePath;
     public String extractedText;
@@ -18,9 +18,9 @@ public class DocumentEntity {
     @Ignore
     public DocumentEntity() {}
 
-    public DocumentEntity(int userId, int categoryId, String fileName, String filePath, String extractedText) {
-        this.userId = userId;
-        this.categoryId = categoryId;
+    public DocumentEntity(String subject, String topic, String fileName, String filePath, String extractedText) {
+        this.subject = subject;
+        this.topic = topic;
         this.fileName = fileName;
         this.filePath = filePath;
         this.extractedText = extractedText;

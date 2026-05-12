@@ -18,8 +18,6 @@ import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 import com.example.boardexamreviewer.MainActivity;
 import com.example.boardexamreviewer.R;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * This service runs in the background to keep the study timer alive.
@@ -33,8 +31,7 @@ public class TimerService extends Service {
     
     public long timeLeftInMillis = 0;
     public boolean isTimerRunning = false;
-    private int ownerUserId = -1;
-    private final Map<Integer, Long> userTimeMap = new HashMap<>();
+    public boolean isBreakMode = false;
     
     public interface OnTickListener {
         void onTick(long millisUntilFinished);
@@ -61,48 +58,15 @@ public class TimerService extends Service {
         return binder;
     }
 
-    private SharedPreferences prefs;
-    private final SharedPreferences.OnSharedPreferenceChangeListener prefListener = (sharedPreferences, key) -> {
-        if ("current_user_id".equals(key)) {
-            int newUserId = sharedPreferences.getInt(key, -1);
-            prepareForUser(newUserId);
-        }
-    };
-
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        
-        prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        prefs.registerOnSharedPreferenceChangeListener(prefListener);
-        
-        int initialUser = prefs.getInt("current_user_id", -1);
-        prepareForUser(initialUser);
     }
 
-    public void prepareForUser(int userId) {
-        // [LOCKDOWN] If the current timer belongs to someone else, PAUSE IT NOW.
-        if (ownerUserId != -1 && ownerUserId != userId && isTimerRunning) {
-            userTimeMap.put(ownerUserId, timeLeftInMillis);
-            pauseTimer();
-        }
-        
-        ownerUserId = userId;
-        Long savedTime = userTimeMap.get(userId);
-        timeLeftInMillis = savedTime != null ? savedTime : 0;
-    }
-
-    public void startTimer(long durationMillis, int userId) {
-        // [STEP: PERSISTENCE] Save current progress for the old user if they switch
-        if (ownerUserId != -1 && ownerUserId != userId && isTimerRunning) {
-            userTimeMap.put(ownerUserId, timeLeftInMillis);
-            pauseTimer();
-        }
-        
-        ownerUserId = userId;
-        Long savedTime = userTimeMap.get(userId);
-        timeLeftInMillis = savedTime != null ? savedTime : durationMillis;
+    public void startTimer(long durationMillis, boolean breakMode) {
+        this.isBreakMode = breakMode;
+        timeLeftInMillis = durationMillis;
         
         if (timer != null) {
             timer.cancel();
@@ -130,9 +94,7 @@ public class TimerService extends Service {
                 
                 // Reset time for next session
                 timeLeftInMillis = 0;
-                if (ownerUserId != -1) {
-                    userTimeMap.remove(ownerUserId);
-                }
+                isBreakMode = !isBreakMode;
 
                 if (onFinishListener != null) {
                     onFinishListener.onFinish();
@@ -150,9 +112,6 @@ public class TimerService extends Service {
             timer.cancel();
         }
         isTimerRunning = false;
-        if (ownerUserId != -1) {
-            userTimeMap.put(ownerUserId, timeLeftInMillis);
-        }
         stopAudio();
         stopForeground(true);
     }
@@ -162,9 +121,7 @@ public class TimerService extends Service {
             timer.cancel();
         }
         isTimerRunning = false;
-        if (ownerUserId != -1) {
-            userTimeMap.remove(ownerUserId);
-        }
+        isBreakMode = false;
         timeLeftInMillis = 0;
         stopAudio();
         stopForeground(true);
@@ -309,9 +266,6 @@ public class TimerService extends Service {
     @Override
     public void onDestroy() {
         stopAudio();
-        if (prefs != null) {
-            prefs.unregisterOnSharedPreferenceChangeListener(prefListener);
-        }
         super.onDestroy();
     }
 
